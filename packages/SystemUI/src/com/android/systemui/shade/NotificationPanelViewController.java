@@ -230,6 +230,7 @@ import com.android.systemui.statusbar.policy.KeyguardUserSwitcherView;
 import com.android.systemui.statusbar.policy.OnHeadsUpChangedListener;
 import com.android.systemui.statusbar.policy.SplitShadeStateController;
 import com.android.systemui.statusbar.window.StatusBarWindowStateController;
+import com.android.systemui.tuner.TunerService;
 import com.android.systemui.unfold.SysUIUnfoldComponent;
 import com.android.systemui.util.Compile;
 import com.android.systemui.util.Utils;
@@ -367,6 +368,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
     private final QuickSettingsController mQsController;
     private final NaturalScrollingSettingObserver mNaturalScrollingSettingObserver;
     private final TouchHandler mTouchHandler = new TouchHandler();
+    private final TunerService mTunerService;    
 
     private long mDownTime;
     private boolean mTouchSlopExceededBeforeDown;
@@ -793,7 +795,8 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
             PowerInteractor powerInteractor,
             KeyguardClockPositionAlgorithm keyguardClockPositionAlgorithm,
             NaturalScrollingSettingObserver naturalScrollingSettingObserver,
-            Context context) {
+            TunerService tunerService,            
+            Context context) {          
         keyguardStateController.addCallback(new KeyguardStateController.Callback() {
             @Override
             public void onKeyguardFadingAwayChanged() {
@@ -824,7 +827,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
         mPowerInteractor = powerInteractor;
         mKeyguardViewConfigurator = keyguardViewConfigurator;
         mClockPositionAlgorithm = keyguardClockPositionAlgorithm;
-        mNaturalScrollingSettingObserver = naturalScrollingSettingObserver;
+        mNaturalScrollingSettingObserver = naturalScrollingSettingObserver;      
         mView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
             @Override
             public void onViewAttachedToWindow(View v) {
@@ -899,6 +902,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
                 mSplitShadeStateController.shouldUseSplitNotificationShade(mResources);
         mView.setWillNotDraw(!DEBUG_DRAWABLE);
         mShadeHeaderController = shadeHeaderController;
+        mTunerService = tunerService;
         mLayoutInflater = layoutInflater;
         mFeatureFlags = featureFlags;
         mAnimateBack = predictiveBackAnimateShade();
@@ -4649,7 +4653,8 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
         positionClockAndNotifications(true /* forceUpdate */);
     }
 
-    private final class ShadeAttachStateChangeListener implements View.OnAttachStateChangeListener {
+    private final class ShadeAttachStateChangeListener implements View.OnAttachStateChangeListener,
+            TunerService.Tunable {
         @Override
         public void onViewAttachedToWindow(View v) {
             mFragmentService.getFragmentHostManager(mView)
@@ -4681,6 +4686,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
                     .removeTagListener(QS.TAG, mQsController.getQsFragmentListener());
             mStatusBarStateController.removeCallback(mStatusBarStateListener);
             mConfigurationController.removeCallback(mConfigurationListener);
+            mTunerService.removeTunable(this);
             mFalsingManager.removeTapListener(mFalsingTapListener);
         }
 

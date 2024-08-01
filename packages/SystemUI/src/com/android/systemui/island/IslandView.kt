@@ -15,14 +15,18 @@
  */
 package com.android.systemui.island
 
+import android.app.ActivityTaskManager
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.PendingIntent
+import android.app.TaskStackListener
+import android.content.pm.ApplicationInfo
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -45,6 +49,8 @@ import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.text.TextUtils
 import android.util.AttributeSet
+import android.util.IconDrawableFactory
+import android.util.Log
 import android.view.MotionEvent
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
@@ -260,11 +266,17 @@ class IslandView : ExtendedFloatingActionButton {
         setOnTouchListener(sbn.notification.contentIntent, sbn.packageName)
     }
 
+    fun getApplicationInfo(sbn: StatusBarNotification): ApplicationInfo {
+        return context.packageManager.getApplicationInfoAsUser(
+                sbn.packageName,
+                PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()),
+                sbn.getUser().getIdentifier())
+    }	
+
     fun getAppLabel(sbn: StatusBarNotification, context: Context): String {
         val packageManager = context.packageManager
         return try {
-            val appInfo = packageManager.getApplicationInfo(sbn.packageName, 0)
-            val appLabel = packageManager.getApplicationLabel(appInfo).toString()
+            val appLabel = packageManager.getApplicationLabel(getApplicationInfo(sbn)).toString()
             appLabel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         } catch (e: PackageManager.NameNotFoundException) {
             sbn.packageName
@@ -284,11 +296,11 @@ class IslandView : ExtendedFloatingActionButton {
 
     private fun getNotificationIcon(sbn: StatusBarNotification, notification: Notification): Drawable? {
         return try {
-            val pkgname = sbn?.packageName
-            if ("com.android.systemui" == pkgname) {
+            if ("com.android.systemui" == sbn?.packageName) {
                 context.getDrawable(notification.icon)
             } else {
-                context.packageManager.getApplicationIcon(pkgname)
+                val iconFactory: IconDrawableFactory = IconDrawableFactory.newInstance(context)
+                iconFactory.getBadgedIcon(getApplicationInfo(sbn), sbn.getUser().getIdentifier())
             }
         } catch (e: PackageManager.NameNotFoundException) {
             null
@@ -335,22 +347,25 @@ class IslandView : ExtendedFloatingActionButton {
         AsyncTask.execute { vibrator?.vibrate(effectClick) }
     }
 
-    private fun onSingleTap(pendingIntent: PendingIntent, packageName: String) {
+    private fun onSingleTap(pendingIntent: PendingIntent?, packageName: String) {
         if (isDeviceRinging()) {
             telecomManager?.acceptRingingCall()
         } else {
             val appIntent = context.packageManager.getLaunchIntentForPackage(packageName)?.apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             }
-            try {
-                val options = ActivityOptions.makeBasic()
-                options.setPendingIntentBackgroundActivityStartMode(
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
-                pendingIntent.send(context, 0, appIntent, null, null, null, options.toBundle())
-            } catch (e: Exception) {
+
+            if (pendingIntent != null) {
                 try {
-                    context.startActivityAsUser(appIntent, UserHandle.CURRENT)
-                } catch (e: Exception) {}
+                    val options = ActivityOptions.makeBasic()
+                    options.setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                    pendingIntent.send(context, 0, appIntent, null, null, null, options.toBundle())
+                } catch (e: Exception) {
+                    appIntent?.let { context.startActivityAsUser(it, UserHandle.CURRENT) }
+                }
+            } else {
+                appIntent?.let { context.startActivityAsUser(it, UserHandle.CURRENT) }
             }
         }
         AsyncTask.execute { vibrator?.vibrate(effectTick) }
