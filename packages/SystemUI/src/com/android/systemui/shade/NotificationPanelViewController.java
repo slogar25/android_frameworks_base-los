@@ -633,7 +633,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
     private IslandView mNotifIsland;
     private NotificationStackScrollLayout mNotificationStackScroller;
     private boolean mUseIslandNotification;
-	private boolean mUseHeadsUP;
+	private boolean mUseHeadsUp;
 
     private final SplitShadeStateController mSplitShadeStateController;
     private final Runnable mFlingCollapseRunnable = () -> fling(0, false /* expand */,
