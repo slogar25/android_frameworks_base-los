@@ -244,7 +244,6 @@ android_library {
         "SystemUICustomizationTestUtils",
         "SystemUI-statsd",
         "SettingsLib",
-        "VendorSupport-preference",
         "com_android_systemui_flags_lib",
         "com_android_systemui_shared_flags_lib",
         "flag-junit-base",
